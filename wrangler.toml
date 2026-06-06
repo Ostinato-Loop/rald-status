@@ -1,0 +1,7 @@
+name = "rald-status"
+pages_build_output_dir = "dist"
+compatibility_date = "2025-01-01"
+
+[vars]
+VITE_SITE_NAME = "RALD Status"
+VITE_SITE_URL = "https://status.rald.cloud"
