@@ -52,23 +52,24 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: wrangler pages deploy dist --project-name=rald-status --branch=${{ github.ref_name }}
 
-      - name: Register status.rald.cloud custom domain (idempotent)
+      - name: Register status.rald.cloud custom domain via CF API (idempotent)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          wrangler pages domain add rald-status status.rald.cloud \
-            || echo "Domain already configured or pending DNS propagation"
+          RESULT=$(curl -s -X POST \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/rald-status/domains" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{"name":"status.rald.cloud"}')
+          echo "Domain registration response: $RESULT"
+          echo "$RESULT" | grep -q '"success":true' \
+            && echo "✅ status.rald.cloud registered" \
+            || echo "ℹ️  Domain may already be registered or pending DNS propagation"
 
       - name: Health check
         run: |
-          echo "Waiting 20s for propagation..."
-          sleep 20
+          sleep 15
           STATUS=$(curl -sf -o /dev/null -w "%{http_code}" https://status.rald.cloud/ || echo "000")
           echo "status.rald.cloud → HTTP $STATUS"
-          if [ "$STATUS" = "200" ]; then
-            echo "✅ status.rald.cloud is live"
-          else
-            echo "⏳ DNS propagation may take a few minutes"
-          fi
         continue-on-error: true
